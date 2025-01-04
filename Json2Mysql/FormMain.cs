@@ -1,14 +1,16 @@
-﻿using Newtonsoft.Json;
+﻿using FastReport.Data;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static Json2Mysql.Code;
+using static JsonToMysql.Code;
 
-namespace Json2Mysql {
+namespace JsonToMysql {
   public partial class FormMain : Form {
 
     internal FormMain MainForm;
@@ -20,8 +22,16 @@ namespace Json2Mysql {
     public FormMain() {
       InitializeComponent();
     }
+    private void buttonUpdate_Click(object sender, EventArgs e) {
+      MyCode.InitializeDataSource();
+      MyCode.InitializeCheckedListBox();
+    }
 
     private void buttonConvert_Click(object sender, EventArgs e) {
+      if (MyCode.dataSource == null) {
+        MyCode.InitializeDataSource();
+        MyCode.InitializeCheckedListBox();
+      }
       if (textBoxTableName.TextLength == 0 || richTextBoxJSON.TextLength == 0 || MyCode.dataSource == null || MyCode.dataSource.Count == 0) {
         MessageBox.Show("Please input table name and paste JSON text.");
         return;
@@ -30,7 +40,7 @@ namespace Json2Mysql {
 
       richTextBoxResult.Clear();
       richTextBoxResult.Text = sql;
-      label6.Text = "Rows count: " + MyCode.rows.Count;
+      labelRowCount.Text = $"Rows count: {MyCode.dataSource.Count}";
       UpdateDataGridView();
     }
 
@@ -41,113 +51,31 @@ namespace Json2Mysql {
     void UpdateDataGridView() {
       dataGridViewData.Columns.Clear();
       dataGridViewData.Rows.Clear();
-      foreach (string s in MyCode.columns) {
-        dataGridViewData.Columns.Add(s, s);
+      foreach (string column in MyCode.DataTable.ColumnHeaders) {
+        dataGridViewData.Columns.Add(column, column);
       }
 
-      foreach (List<JToken> row in MyCode.rows) {
-        List<string> listValue = new List<string>();
-        foreach (JToken jToken in row) {
-          listValue.Add(jToken.ToString(Formatting.None));
+      foreach (DataTableClass.DataRow currRow in MyCode.DataTable.DataRows) {
+        List<string> listStrRow = new List<string>();
+        foreach (string column in MyCode.DataTable.ColumnHeaders) {
+          List<string> listValue = new List<string>();
+          var result = from x in currRow.DataColumns
+                       where x.Key == column
+                       select x.Value;
+          if (result.Count() == 0) {
+            listStrRow.Add("");
+          } else {
+            listStrRow.Add(result.First());
+          }
         }
-        dataGridViewData.Rows.Add(listValue.ToArray());
+        dataGridViewData.Rows.Add(listStrRow.ToArray());
       }
     }
 
-    private void buttonUpdate_Click(object sender, EventArgs e) {
-      MyCode.InitializeDataSource();
-      MyCode.InitializeCheckedListBox();
+
+    private void FormMain_FormClosed(object sender, FormClosedEventArgs e) {
+      
+      Environment.Exit(0);
     }
-
-    //string CreateTableSQL(string TableName, JArray data) {
-    //  List<string> strings = new List<string>();
-    //  List<KeyValuePair<string, JToken>> keyValuePairs = GetAllKeyValuePairs(data.First as JObject);
-    //  foreach (KeyValuePair<string, JToken> keyValuePair in keyValuePairs) {
-    //    strings.Add($"\t`{keyValuePair.Key}` {ToMySqlType(keyValuePair.Value.Type)}");
-    //  }
-    //  string stringSql = $"CREATE TABLE `{TableName}` (\n"
-    //      + string.Join(",\n", strings)
-    //      + "\n);\n\n";
-    //  return stringSql;
-    //}
-
-    //private void richTextBox1_TextChanged(object sender, EventArgs e) {
-    //  MyCode.InitializeDataSource();
-    //  MyCode.InitializeCheckedListBox();
-    //}
-    //string InsertDataSQL(string TableName) {
-    //  StringBuilder stringSql = new StringBuilder();
-    //  //Insert ignore
-    //  if (checkBoxIgnore.Checked) {
-    //    stringSql.Append($"INSERT IGNORE INTO `{TableName}` (");
-    //  } else {
-    //    stringSql.Append($"INSERT INTO `{TableName}` (");
-    //  }
-
-    //  List<string> listStrColumns = new List<string>();
-    //  foreach (string column in MyCode.columns) {
-    //    listStrColumns.Add($"`{column}`");
-    //  }
-    //  stringSql.Append(string.Join(", ", listStrColumns));
-    //  stringSql.Append(")").Append(" VALUES ");
-
-    //  List<string> listStrRows = new List<string>();
-    //  foreach (List<JToken> row in MyCode.rows) {
-    //    List<string> listStrRow = new List<string>();
-    //    foreach (JToken jToken in row) {
-    //      if (jToken.Type == JTokenType.String) {
-    //        listStrRow.Add($"'{jToken}'");
-    //      } else if (jToken.Type == JTokenType.Array || jToken.Type == JTokenType.Object) {
-    //        listStrRow.Add($"'{jToken.ToString(Formatting.None)}'");
-    //      } else {
-    //        listStrRow.Add(jToken.ToString(Formatting.None));
-    //      }
-    //    }
-    //    listStrRows.Add("\n(" + string.Join(", ", listStrRow) + ")");
-    //  }
-    //  stringSql.Append(string.Join(",", listStrRows));
-    //  stringSql.Append(";");
-    //  return stringSql.ToString();
-    //}
-
-    //string ToMySqlType(JTokenType type) {
-    //  switch (type) {
-    //    case JTokenType.Integer:
-    //      return "INT";
-    //    case JTokenType.Float:
-    //      return "DOUBLE";
-    //    default:
-    //      return "TEXT";
-    //  }
-    //}
-
-
-
-    //static List<string> GetKeys(JArray jsonArray) {
-    //  List<string> keys = new List<string>();
-
-    //  if (jsonArray.Count > 0 && jsonArray.First is JObject firstObject) {
-    //    foreach (JProperty property in firstObject.Properties()) {
-    //      keys.Add(property.Name);
-    //    }
-    //  }
-
-    //  return keys;
-    //}
-
-
-
-    //static void RemoveKeysFromJArray(JArray jsonArray, List<string> keysToRemove) {
-    //  if (keysToRemove.Count == 0)
-    //    return;
-    //  foreach (JObject obj in jsonArray.Children<JObject>()) {
-    //    foreach (string key in keysToRemove) {
-    //      JProperty propertyToRemove = obj.Property(key);
-    //      propertyToRemove?.Remove();
-    //    }
-    //  }
-    //}
-
-
   }
 }

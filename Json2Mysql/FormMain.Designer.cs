@@ -1,5 +1,5 @@
 ﻿
-namespace Json2Mysql
+namespace JsonToMysql
 {
     partial class FormMain
     {
@@ -43,7 +43,7 @@ namespace Json2Mysql
       this.checkBoxCreateTable = new System.Windows.Forms.CheckBox();
       this.dataGridViewData = new System.Windows.Forms.DataGridView();
       this.label5 = new System.Windows.Forms.Label();
-      this.label6 = new System.Windows.Forms.Label();
+      this.labelRowCount = new System.Windows.Forms.Label();
       this.buttonUpdate = new System.Windows.Forms.Button();
       ((System.ComponentModel.ISupportInitialize)(this.dataGridViewData)).BeginInit();
       this.SuspendLayout();
@@ -192,15 +192,15 @@ namespace Json2Mysql
       this.label5.TabIndex = 19;
       this.label5.Text = "Data view:";
       // 
-      // label6
+      // labelRowCount
       // 
-      this.label6.AutoSize = true;
-      this.label6.Location = new System.Drawing.Point(534, 77);
-      this.label6.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
-      this.label6.Name = "label6";
-      this.label6.Size = new System.Drawing.Size(67, 13);
-      this.label6.TabIndex = 20;
-      this.label6.Text = "Rows count:";
+      this.labelRowCount.AutoSize = true;
+      this.labelRowCount.Location = new System.Drawing.Point(534, 77);
+      this.labelRowCount.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+      this.labelRowCount.Name = "labelRowCount";
+      this.labelRowCount.Size = new System.Drawing.Size(67, 13);
+      this.labelRowCount.TabIndex = 20;
+      this.labelRowCount.Text = "Rows count:";
       // 
       // buttonUpdate
       // 
@@ -218,7 +218,7 @@ namespace Json2Mysql
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
       this.ClientSize = new System.Drawing.Size(1014, 539);
       this.Controls.Add(this.buttonUpdate);
-      this.Controls.Add(this.label6);
+      this.Controls.Add(this.labelRowCount);
       this.Controls.Add(this.label5);
       this.Controls.Add(this.dataGridViewData);
       this.Controls.Add(this.checkBoxCreateTable);
@@ -236,6 +236,7 @@ namespace Json2Mysql
       this.Margin = new System.Windows.Forms.Padding(2);
       this.Name = "FormMain";
       this.Text = "Json2Mysql";
+      this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.FormMain_FormClosed);
       ((System.ComponentModel.ISupportInitialize)(this.dataGridViewData)).EndInit();
       this.ResumeLayout(false);
       this.PerformLayout();
@@ -253,7 +254,7 @@ namespace Json2Mysql
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.DataGridView dataGridViewData;
         private System.Windows.Forms.Label label5;
-        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.Label labelRowCount;
     internal System.Windows.Forms.CheckedListBox checkedListBoxColumns;
     internal System.Windows.Forms.CheckBox checkBoxCreateTable;
     internal System.Windows.Forms.RichTextBox richTextBoxResult;

@@ -2,26 +2,33 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static JsonToMysql.DataTableClass;
 
-namespace Json2Mysql {
+namespace JsonToMysql {
+
   internal class Code {
+
     internal FormMain MainForm;
     internal JArray dataSource;
-    internal List<string> columns;
     internal List<List<JToken>> rows;
+    internal DataTableClass DataTable = new DataTableClass();
+    internal List<string> listStrRows;
 
     internal string JsonToMysql(string TableName, CheckedListBox checkedListBoxColumns) {
       //columns data follow checked list box column
-      columns = new List<string>();
+      DataTable.ColumnHeaders = new List<string>();
       List<string> columnsRemove = new List<string>();
       for (int i = 0; i < checkedListBoxColumns.Items.Count; i++) {
         bool isChecked = checkedListBoxColumns.GetItemChecked(i);
         if (isChecked)
-          columns.Add(checkedListBoxColumns.Items[i].ToString());
+          DataTable.ColumnHeaders.Add(checkedListBoxColumns.Items[i].ToString());
         else
           columnsRemove.Add(checkedListBoxColumns.Items[i].ToString());
       }
@@ -29,7 +36,6 @@ namespace Json2Mysql {
       //data follow checked list box column
       JArray data = dataSource.DeepClone() as JArray;
       RemoveKeysFromJArray(data, columnsRemove);
-      rows = GetAllValuesListFromJArray(data);
 
       StringBuilder stringSql = new StringBuilder();
       //Create table
@@ -41,11 +47,10 @@ namespace Json2Mysql {
       return stringSql.ToString();
     }
 
-    internal static string CreateTableSQL(string TableName, JArray data) {
+    internal string CreateTableSQL(string TableName, JArray data) {
       List<string> strings = new List<string>();
-      List<KeyValuePair<string, JToken>> keyValuePairs = GetAllKeyValuePairs(data.First as JObject);
-      foreach (KeyValuePair<string, JToken> keyValuePair in keyValuePairs) {
-        strings.Add($"\t`{keyValuePair.Key}` {ToMySqlType(keyValuePair.Value.Type)}");
+      for(int i = 0; i < DataTable.ColumnHeaders.Count; i++) {
+        strings.Add($"\t`{DataTable.ColumnHeaders[i]}` {DataTable.ColumnType[i]}");
       }
       string stringSql = $"CREATE TABLE `{TableName}` (\n"
           + string.Join(",\n", strings)
@@ -53,7 +58,7 @@ namespace Json2Mysql {
       return stringSql;
     }
 
-    internal string InsertDataSQL(string TableName, bool InsertIgnore = true)  {
+    internal string InsertDataSQL(string TableName, bool InsertIgnore = true) {
       StringBuilder stringSql = new StringBuilder();
       //Insert ignore
       if (InsertIgnore) {
@@ -62,26 +67,24 @@ namespace Json2Mysql {
         stringSql.Append($"INSERT INTO `{TableName}` (");
       }
 
-      List<string> listStrColumns = new List<string>();
-      foreach (string column in columns) {
-        listStrColumns.Add($"`{column}`");
-      }
-      stringSql.Append(string.Join(", ", listStrColumns));
+      stringSql.Append(string.Join(", ", DataTable.ColumnHeaders));
       stringSql.Append(")").Append(" VALUES ");
 
-      List<string> listStrRows = new List<string>();
-      foreach (List<JToken> row in rows) {
+      listStrRows = new List<string>();
+
+      foreach (DataTableClass.DataRow currRow in DataTable.DataRows) {
         List<string> listStrRow = new List<string>();
-        foreach (JToken jToken in row) {
-          if (jToken.Type == JTokenType.String) {
-            listStrRow.Add($"'{jToken}'");
-          } else if (jToken.Type == JTokenType.Array || jToken.Type == JTokenType.Object) {
-            listStrRow.Add($"'{jToken.ToString(Formatting.None)}'");
+        foreach (string column in DataTable.ColumnHeaders) {
+          var result = from x in currRow.DataColumns
+                       where x.Key == column
+                       select x.Value;
+          if (result.Count() == 0) {
+            listStrRow.Add("");
           } else {
-            listStrRow.Add(jToken.ToString(Formatting.None));
+            listStrRow.Add(result.First());
           }
         }
-        listStrRows.Add("\n(" + string.Join(", ", listStrRow) + ")");
+        listStrRows.Add("\n('" + string.Join("', '", listStrRow) + "')");
       }
       stringSql.Append(string.Join(",", listStrRows));
       stringSql.Append(";");
@@ -99,53 +102,24 @@ namespace Json2Mysql {
       }
     }
 
-    internal static List<List<JToken>> GetAllValuesListFromJArray(JArray jsonArray) {
-      List<List<JToken>> allValuesList = new List<List<JToken>>();
-
-      foreach (JObject obj in jsonArray.Children<JObject>()) {
-        List<JToken> values = new List<JToken>();
-
-        foreach (JProperty property in obj.Properties()) {
-          values.Add(property.Value);
-        }
-
-        allValuesList.Add(values);
-      }
-
-      return allValuesList;
-    }
-
-    internal static List<string> GetKeys(JArray jsonArray) {
-      List<string> keys = new List<string>();
+    internal void GetTableData(JArray jsonArray) {
+      DataTable.ColumnHeaders = new List<string>();
+      DataTable.ColumnType = new List<string>();
 
       foreach (JObject currObject in jsonArray) {
+        DataTableClass.DataRow currRow = new DataTableClass.DataRow();
         foreach (JProperty property in currObject.Properties()) {
-          if (!keys.Contains(property.Name)) {
-            keys.Add(property.Name);
+          if (!DataTable.ColumnHeaders.Contains(property.Name)) {
+            DataTable.ColumnHeaders.Add(property.Name);
+            DataTable.ColumnType.Add(ToMySqlType(property.First.Type));
           }
+          DataValue currData = new DataValue();
+          currData.Key = property.Name;
+          currData.Value = property.Value.ToString();
+          currRow.DataColumns.Add(currData);
         }
+        DataTable.DataRows.Add(currRow);
       }
-
-      /* This is the original code - la
-       
-
-      //if (jsonArray.Count > 0 && jsonArray.First is JObject firstObject) {
-      //  foreach (JProperty property in firstObject.Properties()) {
-      //    keys.Add(property.Name);
-      //  }
-      //} */
-
-      return keys;
-    }
-
-    internal static List<KeyValuePair<string, JToken>> GetAllKeyValuePairs(JObject jsonObject) {
-      List<KeyValuePair<string, JToken>> keyValuePairs = new List<KeyValuePair<string, JToken>>();
-
-      foreach (JProperty property in jsonObject.Properties()) {
-        keyValuePairs.Add(new KeyValuePair<string, JToken>(property.Name, property.Value));
-      }
-
-      return keyValuePairs;
     }
 
     internal static void RemoveKeysFromJArray(JArray jsonArray, List<string> keysToRemove) {
@@ -176,9 +150,9 @@ namespace Json2Mysql {
         return;
       }
       MainForm.checkedListBoxColumns.Items.Clear();
-      List<string> columns = GetKeys(dataSource);
-      MainForm.checkedListBoxColumns.Items.AddRange(columns.ToArray());
-      for (int i = 0; i < columns.Count; i++) {
+      GetTableData(dataSource);
+      MainForm.checkedListBoxColumns.Items.AddRange(DataTable.ColumnHeaders.ToArray());
+      for (int i = 0; i < DataTable.ColumnHeaders.Count; i++) {
         MainForm.checkedListBoxColumns.SetItemChecked(i, true);
       }
     }
